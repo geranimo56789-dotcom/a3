@@ -1,4 +1,4 @@
-﻿name: iOS Build - RUNTIME IDENTIFIERS FIXED
+﻿name: iOS Build - WORKLOAD INSTALLATION FIXED
 
 on:
   push:
@@ -18,41 +18,55 @@ jobs:
       - name: Select Xcode 15.2
         run: sudo xcode-select -s /Applications/Xcode_15.2.app/Contents/Developer
 
-      - name: Setup .NET 8.0.x
+      - name: Setup .NET 8.0.x (Specific Version)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '8.0.413'
+          
+      - name: Verify .NET Installation
+        run: |
+          echo "=== .NET Version Check ==="
+          dotnet --version
+          dotnet --info
+          echo "=== Pre-Workload Check ==="
+          dotnet workload list
+
+      - name: Install .NET MAUI Workloads (CRITICAL FIX)
+        run: |
+          echo "=== Installing MAUI Workloads ==="
+          dotnet workload install maui --skip-sign-check --source https://api.nuget.org/v3/index.json --verbosity detailed
+          echo "=== Post-Installation Verification ==="
+          dotnet workload list
+          echo "=== Workload Installation Complete ==="
 
       - name: Environment Diagnostics
         run: |
-          echo "=== .NET Environment ==="
-          dotnet --info
           echo "=== Xcode Environment ==="
           xcodebuild -version
           xcrun --show-sdk-path --sdk iphonesimulator
-          echo "=== iOS Simulators ==="
-          xcrun simctl list devices ios --json | jq '.devices | to_entries[] | select(.key | contains("iOS")) | {version: .key, devices: .value}'
+          echo "=== iOS Simulators Available ==="
+          xcrun simctl list devices ios --json | jq '.devices | keys[]' | head -5
 
-      - name: Clean Previous Builds
+      - name: Clean and Prepare Build
         run: |
           cd HelloMaui
-          dotnet clean
+          echo "=== Cleaning Previous Build ==="
           rm -rf bin/ obj/
+          echo "=== Project File Contents ==="
+          cat HelloMaui.csproj
 
-      - name: Install .NET MAUI Workload
-        run: |
-          dotnet workload install maui --skip-sign-check --source https://api.nuget.org/v3/index.json
-          dotnet workload list
-
-      - name: Restore Dependencies with iOS Focus
+      - name: Restore Dependencies
         run: |
           cd HelloMaui
-          dotnet restore HelloMaui.csproj -f net8.0-ios -v detailed
+          echo "=== Restoring All Dependencies ==="
+          dotnet restore HelloMaui.csproj --verbosity detailed
+          echo "=== iOS-Specific Restore ==="
+          dotnet restore HelloMaui.csproj -f net8.0-ios --verbosity detailed
 
-      - name: Build iOS Release with RuntimeIdentifier
+      - name: Build iOS Release
         run: |
           cd HelloMaui
-          echo "=== Building iOS Release for iossimulator-x64 ==="
+          echo "=== Building iOS for Simulator ==="
           dotnet build HelloMaui.csproj \
             -f net8.0-ios \
             -c Release \
@@ -60,40 +74,42 @@ jobs:
             -p:UseInterpreter=true \
             -p:MtouchDebug=false \
             -p:MtouchFastDev=false \
-            -v detailed
+            --verbosity detailed
           
-          # Check if build succeeded
-          if [ $? -eq 0 ]; then
-            echo " Release build succeeded"
-            ls -la bin/Release/net8.0-ios/iossimulator-x64/
-          else
-            echo " Release build failed, trying Debug build"
-            dotnet build HelloMaui.csproj \
-              -f net8.0-ios \
-              -c Debug \
-              -r iossimulator-x64 \
-              -p:UseInterpreter=true \
-              -p:MtouchDebug=true \
-              -p:MtouchFastDev=true \
-              -v detailed
-          fi
+          echo "=== Build Output Check ==="
+          find bin/ -name "*.app" -type d 2>/dev/null || echo "No .app files found"
+          find bin/ -type f -name "*.dll" | head -5 || echo "No .dll files found"
 
-      - name: Upload iOS Build Artifacts
+      - name: Build iOS Debug (Fallback)
+        if: failure()
+        run: |
+          cd HelloMaui
+          echo "=== Fallback: Building iOS Debug ==="
+          dotnet build HelloMaui.csproj \
+            -f net8.0-ios \
+            -c Debug \
+            -r iossimulator-x64 \
+            -p:UseInterpreter=true \
+            -p:MtouchDebug=true \
+            -p:MtouchFastDev=true \
+            --verbosity detailed
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: HelloMaui-iOS-Build-Output
+          name: HelloMaui-iOS-Build-Complete
           path: |
-            HelloMaui/bin/**/net8.0-ios/**/*
-            HelloMaui/obj/**/net8.0-ios/**/*.assets.json
+            HelloMaui/bin/**/*
+            HelloMaui/obj/**/*.assets.json
           retention-days: 7
 
-      - name: Upload Build Logs
+      - name: Upload Logs and Diagnostics
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: HelloMaui-iOS-Build-Logs
+          name: HelloMaui-Build-Diagnostics
           path: |
-            **/*.binlog
             **/*.log
+            **/*.binlog
           retention-days: 3
