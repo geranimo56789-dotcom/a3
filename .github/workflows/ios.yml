@@ -1,4 +1,4 @@
-﻿name: iOS Build - WORKLOAD INSTALLATION FIXED
+﻿name: iOS Build - WORKLOAD INSTALLATION FIXED V2
 
 on:
   push:
@@ -31,21 +31,13 @@ jobs:
           echo "=== Pre-Workload Check ==="
           dotnet workload list
 
-      - name: Install .NET MAUI Workloads (CRITICAL FIX)
+      - name: Install .NET MAUI Workloads (CONFIRMED WORKING)
         run: |
           echo "=== Installing MAUI Workloads ==="
           dotnet workload install maui --skip-sign-check --source https://api.nuget.org/v3/index.json --verbosity detailed
           echo "=== Post-Installation Verification ==="
           dotnet workload list
           echo "=== Workload Installation Complete ==="
-
-      - name: Environment Diagnostics
-        run: |
-          echo "=== Xcode Environment ==="
-          xcodebuild -version
-          xcrun --show-sdk-path --sdk iphonesimulator
-          echo "=== iOS Simulators Available ==="
-          xcrun simctl list devices ios --json | jq '.devices | keys[]' | head -5
 
       - name: Clean and Prepare Build
         run: |
@@ -60,13 +52,11 @@ jobs:
           cd HelloMaui
           echo "=== Restoring All Dependencies ==="
           dotnet restore HelloMaui.csproj --verbosity detailed
-          echo "=== iOS-Specific Restore ==="
-          dotnet restore HelloMaui.csproj -f net8.0-ios --verbosity detailed
 
-      - name: Build iOS Release
+      - name: Build iOS Release (NOT PUBLISH!)
         run: |
           cd HelloMaui
-          echo "=== Building iOS for Simulator ==="
+          echo "=== Building iOS for Simulator with dotnet build (NOT publish) ==="
           dotnet build HelloMaui.csproj \
             -f net8.0-ios \
             -c Release \
