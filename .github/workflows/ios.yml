@@ -1,4 +1,4 @@
-﻿name: iOS Build - FIXED
+﻿name: iOS Build
 
 on:
   push:
@@ -9,7 +9,7 @@ jobs:
   build-ios:
     runs-on: macos-15
     timeout-minutes: 60
-
+    
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -25,7 +25,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore HelloMaui/HelloMaui.csproj
 
-    - name: Build for iOS Simulator ARM64
+    - name: Build for iOS Simulator
       run: |
         dotnet build HelloMaui/HelloMaui.csproj \
           -f net8.0-ios \
@@ -34,15 +34,9 @@ jobs:
           -p:MtouchLink=None \
           -p:UseInterpreter=false
 
-    - name: Verify build outputs
-      run: |
-        echo "=== Build verification ==="
-        ls -la HelloMaui/bin/Release/net8.0-ios/
-        ls -la HelloMaui/bin/Release/net8.0-ios/iossimulator-arm64/
-
-    - name: Upload iOS Simulator Build
+    - name: Upload iOS Build
       uses: actions/upload-artifact@v4
       with:
-        name: HelloMaui-iOS-Simulator-FIXED
+        name: HelloMaui-iOS
         path: HelloMaui/bin/Release/net8.0-ios/iossimulator-arm64/
         retention-days: 7
