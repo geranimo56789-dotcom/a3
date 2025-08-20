@@ -1,0 +1,45 @@
+﻿name: iOS Build
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.x
+
+    - name: Install MAUI Workload
+      run: dotnet workload install maui
+
+    - name: Restore dependencies
+      run: dotnet restore HelloMaui/HelloMaui.csproj
+
+    - name: Build for iOS Simulator
+      run: |
+        dotnet publish HelloMaui/HelloMaui.csproj \
+          -f net8.0-ios \
+          -c Release \
+          -r iossimulator-arm64 \
+          --self-contained true \
+          -p:MtouchLink=None \
+          -p:RuntimeIdentifier=iossimulator-arm64 \
+          -p:UseInterpreter=false \
+          -o ./output/ios-simulator
+
+    - name: Upload iOS Build
+      uses: actions/upload-artifact@v4
+      with:
+        name: HelloMaui-iOS
+        path: ./output/ios-simulator/
+        retention-days: 7
